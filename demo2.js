@@ -2,7 +2,6 @@ var scene;
 var camera;
 var renderer; 
 var player;
-var player2; //
 var boxes = [];
 var controlsEnabled = false;
 var moveForward = false;
@@ -10,22 +9,20 @@ var moveBackward = false;
 var moveLeft = false;
 var moveRight = false;
 var canJump = false;
+var jump = false;
 var timer = 0;
 var timer2 = 0;
 var timepassed;
 var raycaster = new THREE.Raycaster();
 
 function control(object){
-	//console.log(player.setActivationState(1));
-	//console.log(player.isActive());
+	//console.log(player.getLinearVelocity().z()+" 1")
 	if ( controlsEnabled ) {
 		var velo = player.getLinearVelocity();
 		//console.log(velo.x());
 		//console.log(moveForward);
 		//console.log(moveBackward);
 		player.setActivationState(1);
-		//player.setLinearVelocity(new Ammo.btVector3(0,0,12));
-		
 		var Vx = velo.x();
 		var Vy = velo.y();
 		var Vz = velo.z();
@@ -36,59 +33,85 @@ function control(object){
 		if ( moveBackward ) mV = -1;//new Ammo.btVector3( -10 , velo.y() , 0 ));
 		if ( moveLeft ) mH = 1;//new Ammo.btVector3( 0 , velo.y() , 10 ));
 		if ( moveRight ) mH = -1;//new Ammo.btVector3( 0 , velo.y() , -10 ));
-		
-		var h = velo.z()*velo.z()+velo.x()*velo.x();
-		
-		if (h < 440 && (mV!=0 || mH!=0)){
-			var vector2 = controls.getDirection(new THREE.Vector3(0, 0, 0)).clone();
-			//console.log(vector2);
-			var vector3 = controls.getDirection(new THREE.Vector3(0, 0, 0)).clone();
-			rotationMatrix = new THREE.Matrix4();
-			rotationMatrix.makeRotationY((90) * Math.PI / 180);
-			vector3.applyMatrix4(rotationMatrix);
+		var hi = Vx*Vx+Vz*Vz;
+		//console.log(hi);
+		if (canJump && (mV!=0 || mH!=0)){
+			var rot = controls.getObject().rotation.y
 			
-			vector2.x = vector2.x*mV + vector3.x*mH;
-			vector2.z = vector2.z*mV + vector3.z*mH;
+			var xm = Math.sin(rot)*mV*-1 + Math.cos(rot)*mH*-1;
+			var zm = Math.sin((90) * Math.PI / 180+rot)*mV*-1 + Math.cos((90) * Math.PI / 180+rot)*mH*-1;
 			
-			cel = vector2.x*vector2.x+vector2.z*vector2.z;
-			Vx = vector2.x/cel*20;
-			Vy = velo.y();
-			Vz = vector2.z/cel*20;
+			cel = xm*xm+zm*zm;
+			Vx = xm/cel*15;
+			Vz = zm/cel*15;
+		}
+		else if(!canJump && (mV!=0 || mH!=0)){
+			var rot = controls.getObject().rotation.y
+			
+			var xm = Math.sin(rot)*mV*-1 + Math.cos(rot)*mH*-1;
+			var zm = Math.sin((90) * Math.PI / 180+rot)*mV*-1 + Math.cos((90) * Math.PI / 180+rot)*mH*-1;
+			
+			cel = xm*xm+zm*zm;
+			xm = xm/cel*15;
+			zm = zm/cel*15;
+			var hit = (velo.x()+xm*0.01)*(velo.x()+xm*0.01)+(velo.z()+zm*0.01)*(velo.z()+zm*0.01);
+			//console.log(hit);
+			//console.log(hit);
+			if(hit < hi){
+				Vx = velo.x()+xm*0.01;
+				Vz = velo.z()+zm*0.01;
+			}
+			else{
+				Vx = (velo.x()+xm*0.01)/Math.sqrt(hit)*Math.sqrt(hi);
+				Vz = (velo.z()+zm*0.01)/Math.sqrt(hit)*Math.sqrt(hi);
+			}
 		}
 		//console.log(fxV);
 		//console.log(rxV);
-		if(moveForward || moveBackward || moveLeft || moveRight){player.setFriction(0);}
-		else{
-			player.setFriction(10);
+		if(!canJump){player.setFriction(0);}
+		else if(canJump && (moveForward || moveBackward || moveLeft || moveRight)){
+			player.setFriction(0);
 			//console.log("yay");
 		}
+		else{
+			player.setFriction(7);
+		}
 		
+		var disp = scene.world.getDispatcher();
+		
+		canJump = false;
+		for (var i=0;i<disp.getNumManifolds();i++){
+			var mai = disp.getManifoldByIndexInternal(i);
+			if(mai.getBody0().getCollisionShape().obj == 10 || mai.getBody1().getCollisionShape().obj == 10){
+				//console.log(scene.world.getDispatcher().getManifoldByIndexInternal(i).getBody0().getCollisionShape());
+				//console.log(scene.world.getDispatcher().getManifoldByIndexInternal(i).getBody1().getCollisionShape());
+				//console.log(player);
+				for (j=0;j<mai.getNumContacts();j++){
+					pt = mai.getContactPoint(j);
+					//console.log(pt.getDistance());
+					if (pt.getDistance()<0.00000001)
+					{
+						var ptA = pt.getPositionWorldOnA();
+						var ptB = pt.getPositionWorldOnB();
+						//console.log(controls.getObject().position.y-1.5-1.75);
+						//console.log(ptB.y());
+						if(pt.get_m_normalWorldOnB().y() == -1){
+							canJump = true;
+						}
+						//console.log("what");
+					}
+				}
+			}
+		}
+		if(jump){
+			Vy = 20;
+			jump=false;
+		}
 		player.setLinearVelocity(new Ammo.btVector3( Vx , Vy , Vz ));
-		/*if ( isOnObject === true ) {
-			velocity.y = Math.max( 0, velocity.y );
-			canJump = true;
-		}*/
-		/*controls.getObject().translateX(  );
-		controls.getObject().translateY( velocity.y * delta );
-		controls.getObject().translateZ( 0 );*/
-		//console.log(camera.position)
-		/*if ( controls.getObject().position.y < 10 ) {
-			velocity.y = 0;
-			controls.getObject().position.y = 10;
-			canJump = true;
-		}*/
-		//console.log(player.isActive());
-		//console.log(player.getFlags());
-		
-		/*for (var i=0;i<scene.world.getDispatcher().getNumManifolds();i++){
-			console.log(scene.world.getDispatcher().getManifoldByIndexInternal(i).getBody0().getCollisionShape());
-			console.log(scene.world.getDispatcher().getManifoldByIndexInternal(i).getBody1().getCollisionShape());
-			console.log(scene.world.getDispatcher().getManifoldByIndexInternal(i));
-			console.log(player.getCollisionShape());
-		}*/
 		//controls.getObject().translateX(1);
 		//console.log(controls);
 	}
+	//console.log(player.getLinearVelocity().z()+" 2")
 	//console.log(controls.getObject().rotation);
 	//console.log(player.isActive());
 	//console.log(scene.world/*.getDispacher().getManifoldByIndexInternal(0)*/);
@@ -96,61 +119,61 @@ function control(object){
 }
 
 function loadfix(){
-	var dim = [[0,-2,0,120,4,120],
-[-40,20,58,40,40,4],
-[-58,20,-2,4,40,116],
-[-18,20,8,4,40,104],
-[-22,4,38,4,8,4],
-[-30,4,38,4,8,4],
-[-26,10,38,12,4,4],
-[-26,4,38,4,8,0.09999847412],
-[-22,4,18,4,8,4],
-[-30,4,18,4,8,4],
-[-26,10,18,12,4,4],
-[-26,4,18,4,8,0.09999847412],
-[-22,4,-2,4,8,4],
-[-30,4,-2,4,8,4],
-[-26,10,-2,12,4,4],
-[-26,4,-2,4,8,0.09999990463],
-[-54,6,38,4,12,12],
-[-22,1,-18,4,2,4],
-[2,20,-58,116,40,4],
-[-18,24,-48,4,32,8],
-[-50,0.999997139,-50,12,1.999994278,12],
-[-50,1,-43,12,2,2],
-[-43,1,-49,2,2,14],
-[-18,20,-54,4,40,4],
-[-10,10,-38,12,20,4],
-[6,4,-48,28,8,16],
-[12,10,-38,8,20,4],
-[-10,10,-30,12,20,12],
-[12,10,-30,8,20,12],
-[2,4,-34,12,8,12],
-[2,10,-26,12,20,4],
-[2,14,-39.95000076,12,12,0.1000000015],
-[26,4,-36,12,8,40],
-[50,4,-36,12,8,40],
-[58,20,2,4,40,116],
-[38,1,-20.00000191,12,2,71.99999619],
-[38,3,-55,12,2,2],
-[38,3,15,12,2,2],
-[50,12,-50,12,8,12],
-[50,20,22,12,40,76],
-[26,20,10,12,40,52],
-[18,20,-2,4,40,76],
-[38,8,32,12,16,32],
-[18,12,-42,4,8,4],
-[18,12,-54,4,8,4],
-[18,28,-48,4,24,16],
-[38,32,26,12,16,4],
-[33,20,26,2,8,4],
-[43,20,26,2,8,4],
-[37.95,8,-20,12,0.1000000015,72],
-[24,20,54,40,40,12],
-[26,8,42,12,16,12],
-[2,20,30,4,40,60],
-[8,20,-2,16,40,4],
-[10,0,16,12,24,32]
+	var dim = [[0,-2,0,120,4,120,0],
+[-40,20,58,40,40,4,0],
+[-58,20,-2,4,40,116,0],
+[-18,20,8,4,40,104,0],
+[-22,4,38,4,8,4,0],
+[-30,4,38,4,8,4,0],
+[-26,10,38,12,4,4,0],
+[-22,4,18,4,8,4,0],
+[-30,4,18,4,8,4,0],
+[-26,10,18,12,4,4,0],
+[-22,4,-2,4,8,4,0],
+[-30,4,-2,4,8,4,0],
+[-26,10,-2,12,4,4,0],
+[-22,1,-18,4,2,4,0],
+[2,20,-58,116,40,4,0],
+[-18,24,-48,4,32,8,0],
+[-50,0.999997139,-50,12,1.999994278,12,0],
+[-50,1,-43,12,2,2,0],
+[-43,1,-49,2,2,14,0],
+[-18,20,-54,4,40,4,0],
+[-10,10,-38,12,20,4,0],
+[6,4,-48,28,8,16,0],
+[12,10,-38,8,20,4,0],
+[2,4,-34,12,8,12,0],
+[26,4,-36,12,8,40,0],
+[50,4,-36,12,8,40,0],
+[58,20,2,4,40,116,0],
+[38,1,-20.00000191,12,2,71.99999619,0],
+[38,3,-55,12,2,2,0],
+[38,3,15,12,2,2,0],
+[50,12,-50,12,8,12,0],
+[18,20,-2,4,40,76,0],
+[18,12,-42,4,8,4,0],
+[18,12,-54,4,8,4,0],
+[18,28,-48,4,24,16,0],
+[24,20,54,40,40,12,0],
+[26,8,42,12,16,12,0],
+[2,20,30,4,40,60,0],
+[8,20,-2,16,40,4,0],
+[10,12,16,12,24,32,0],
+[10,36,14,12,8,4,0],
+[15,28,14,2,8,4,0],
+[5,28,14,2,8,4,0],
+[2,14,-38,12,12,0.1000003815,1],
+[38,6,-20,14,0.1000003815,72,1],
+[-26,4,-2,4,8,0.1000003815,1],
+[-26,4,18,4,8,0.1000003815,1],
+[-26,4,38,4,8,0.1000003815,1],
+[-54,6,38,4,12,12,2],
+[-10,10,-30,12,20,12,2],
+[12,10,-30,8,20,12,2],
+[2,10,-26,12,20,4,2],
+[50,20,22,12,40,76,2],
+[26,20,10,12,40,52,2],
+[38,8,32,12,16,32,2]
 ]
 	for (var i=0;i<dim.length;i++){
 		var groundShape = new Ammo.btBoxShape(new Ammo.btVector3( dim[i][3]/2, dim[i][4]/2, dim[i][5]/2)); // Create block 50x2x50
@@ -197,7 +220,9 @@ function loaddim(){
 	boxAmmo.setAngularFactor(new Ammo.btVector3(0,0,0));
 	player = boxAmmo;
 	boxAmmo.setFriction(0);
-	boxAmmo.getCollisionShape().test = true;
+	boxAmmo.getCollisionShape().obj = 10;
+	console.log(boxAmmo);
+	//boxAmmo.setMargin(0.5);
 	scene.world.addRigidBody( boxAmmo , 2,3);
 
 	var geometry = new THREE.BoxGeometry( 2, 3.5,2);
@@ -208,7 +233,6 @@ function loaddim(){
 	scene.add(box2);
 	boxAmmo.mesh = box2; // Assign the Three.js mesh in `box`, this is used to update the model position later
 	boxes.push( boxAmmo );
-	console.log(player.setActivationState(1))
 }
 
 function initControls(){
@@ -319,10 +343,11 @@ function initControls(){
 			case 39: // right
 			case 68: // d
 				moveRight = true;
-				//console.log("yy")
 			break;
 			case 32: // space
-				canJump = true;
+				if(canJump){
+					jump = true;
+				}
 				break;
 		}
 	};
@@ -364,12 +389,14 @@ function initControls(){
 	
 }
 
-
+function fire(){
+	var vector3 = controls.getDirection(new THREE.Vector3(0, 0, 0)).clone();
+	
+}
 
 function animate() {
 	
 	requestAnimationFrame( animate );
-	control(player);
 	render();
 	//stats.update();
 
@@ -381,6 +408,8 @@ function update() {
 	timepassed = nw;
 	for(var i=0;i<pass/1000;i=i+1/300){
 		scene.world.stepSimulation( 1 / 300,1);
+		control(player);
+		
 	}// Tells Ammo.js to apply physics for 1/60th of a second with a maximum of 5 steps
     var i, transform = new Ammo.btTransform(), origin, rotation;
      
@@ -404,7 +433,7 @@ function update() {
 	player.getMotionState().getWorldTransform( transform );
 	origin = transform.getOrigin();
 	controls.getObject().position.x = origin.x();
-	controls.getObject().position.y = origin.y();
+	controls.getObject().position.y = origin.y()+1.5;
 	controls.getObject().position.z = origin.z();
 	
 }
@@ -450,7 +479,7 @@ function init(){
 	var overlappingPairCache = new Ammo.btDbvtBroadphase();
 	var solver = new Ammo.btSequentialImpulseConstraintSolver();
 	scene.world = new Ammo.btDiscreteDynamicsWorld( dispatcher, overlappingPairCache, solver, collisionConfiguration );
-	scene.world.setGravity(new Ammo.btVector3(0, -20, 0));
+	scene.world.setGravity(new Ammo.btVector3(0, -40, 0));
 	
 	loadfix();
 	loaddim();
@@ -458,14 +487,6 @@ function init(){
 	//camera.position.x = 100;
 	controls = new THREE.PointerLockControls( camera );
 	scene.add( controls.getObject() );
-	controls.getObject().position.y = 100
-	
-	//camera.position.x = 100;
-	console.log(controls.getDirection(new THREE.Vector3(0, 0, 0)).clone());
-	
-	//controls.getObject().translateX(-40);
-	//controls.getObject().translateY(100);
-	//controls.getObject().translateZ(0);
 	
 	var directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
 	directionalLight.position.set( -20, 10, 10 );
