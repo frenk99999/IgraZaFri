@@ -14,15 +14,18 @@ var timer = 0;
 var timer2 = 0;
 var timepassed;
 var raycaster = new THREE.Raycaster();
+var loaded = false;
+var firemode = 1;
 
 function control(object){
 	//console.log(player.getLinearVelocity().z()+" 1")
 	if ( controlsEnabled ) {
+		player.setActivationState(1);
 		var velo = player.getLinearVelocity();
 		//console.log(velo.x());
 		//console.log(moveForward);
 		//console.log(moveBackward);
-		player.setActivationState(1);
+		//player.setActivationState(1);
 		var Vx = velo.x();
 		var Vy = velo.y();
 		var Vz = velo.z();
@@ -102,6 +105,42 @@ function control(object){
 					}
 				}
 			}
+			else if(mai.getBody0().getCollisionShape().obj == 11 || mai.getBody1().getCollisionShape().obj == 11){
+				if(mai.getBody0().getCollisionShape().obj == 11){
+					var inde = -1;//console.log(objs)
+					for(var j=0;j<boxes.length;j++){
+						if(mai.getBody0().getCollisionShape().objs.ptr == boxes[j].ptr){
+							inde = j;
+							break;
+						}
+					}
+					if(inde > -1){
+						boxes.splice(inde,1);
+					}
+					boom(mai.getBody0().getCollisionShape().objs);
+					scene.world.removeRigidBody(mai.getBody0().getCollisionShape().objs);
+					//var index = array.indexOf(mai.getBody0().getCollisionShape().mesh);
+					scene.remove(mai.getBody0().getCollisionShape().mesh);
+				}
+				else{
+					//console.log(mai.getBody1().getCollisionShape().objs)
+					var inde = -1;//console.log(objs)
+					for(var j=0;j<boxes.length;j++){
+						if(mai.getBody1().getCollisionShape().objs.ptr == boxes[j].ptr){
+							console.log(j)
+							inde = j;
+							break;
+						}//var inde = boxes.indexOf(mai.getBody0().getCollisionShape().objs);
+					}
+					if(inde > -1){
+						boxes.splice(inde,1);
+					}
+					//boxes.remove(mai.getBody1().getCollisionShape().objs);
+					boom(mai.getBody1().getCollisionShape().objs);
+					scene.world.removeRigidBody(mai.getBody1().getCollisionShape().objs)
+					scene.remove(mai.getBody1().getCollisionShape().mesh);
+				}
+			}
 		}
 		if(jump){
 			Vy = 20;
@@ -110,6 +149,7 @@ function control(object){
 		player.setLinearVelocity(new Ammo.btVector3( Vx , Vy , Vz ));
 		//controls.getObject().translateX(1);
 		//console.log(controls);
+		//player.setLinearVelocity(new Ammo.btVector3( 0 , 0 , 0 ));
 	}
 	//console.log(player.getLinearVelocity().z()+" 2")
 	//console.log(controls.getObject().rotation);
@@ -221,17 +261,64 @@ function loaddim(){
 	player = boxAmmo;
 	boxAmmo.setFriction(0);
 	boxAmmo.getCollisionShape().obj = 10;
-	console.log(boxAmmo);
+	//console.log(boxAmmo);
 	//boxAmmo.setMargin(0.5);
-	scene.world.addRigidBody( boxAmmo , 2,3);
+	scene.world.addRigidBody( boxAmmo , 2,1);
+	
+	/*var loader = new THREE.OBJMTLLoader();
 
+// load an obj / mtl resource pair
+	loader.load(
+		// OBJ resource URL
+		'soldier.obj',
+		// MTL resource URL
+		'soldier.mtl',
+		// Function when both resources are loaded
+		function ( object ) {
+			scene.add( object );
+			boxAmmo.mesh = object;
+			boxes.push( boxAmmo );
+		},
+		// Function called when downloads progress
+		function ( xhr ) {
+			console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+		},
+		// Function called when downloads error
+		function ( xhr ) {
+			console.log( 'An error happened' );
+		}
+	);*/
+	
+	//var loader = new THREE.BabylonLoader();
+
+// load a Babylon resource
+	/*loader.load(
+		// resource URL
+		'soldier.babylon',
+		// Function when resource is loaded
+		function ( object ) {
+			scene.add( object );
+			console.log(object);
+			boxAmmo.mesh = object;
+			boxes.push( boxAmmo );
+		},
+		// Function called when download progresses
+		function ( xhr ) {
+			console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+		},
+		// Function called when download errors
+		function ( xhr ) {
+			console.log( 'An error happened' );
+		}
+);*/
+	
 	var geometry = new THREE.BoxGeometry( 2, 3.5,2);
 	var material = new THREE.MeshPhongMaterial( { color: 0x00ff00, specular: 0xffffff, shininess: 30, shading: THREE.FlatShading } )
 	//var material = new THREE.MeshBasicMaterial({color: 0x00ff00});
 	box2 = new THREE.Mesh(geometry,material);
 	box2.castShadow = false;
 	scene.add(box2);
-	boxAmmo.mesh = box2; // Assign the Three.js mesh in `box`, this is used to update the model position later
+	boxAmmo.mesh = box2; // Assign the Three.js mesh in `box`, this is used to update the model position later*/
 	boxes.push( boxAmmo );
 }
 
@@ -376,10 +463,10 @@ function initControls(){
 	};
 	
 	var mousedown = function ( event ) { 
-		if (controlsEnabled && timer < 0 && event.which == 1){
+		if (controlsEnabled && timer <= 0 && event.which == 1){
 			fire();
 		}
-		if (controlsEnabled && timer2 < 0 && event.which == 3){
+		if (controlsEnabled && timer2 <= 0 && event.which == 3){
 			altfire();
 		} 
 	}
@@ -389,8 +476,94 @@ function initControls(){
 	
 }
 
+function altfire(){
+	if(firemode = 1){
+		var vector3 = controls.getDirection(new THREE.Vector3(0, 0, 0)).clone();
+		console.log(vector3);
+		var mass = 5; // Matches box dimensions for simplicity
+		var startTransform = new Ammo.btTransform();
+		startTransform.setIdentity();
+	
+		startTransform.setOrigin(new Ammo.btVector3( controls.getObject().position.x , controls.getObject().position.y , controls.getObject().position.z )); // Set initial position
+		startTransform.setRotation(new Ammo.btQuaternion (vector3.x*-1,vector3.y*-1,vector3.z*-1,1));
+	
+		var localInertia = new Ammo.btVector3(0, 0, 0);
+
+		var boxShape = new Ammo.btBoxShape(new Ammo.btVector3( 0.5 , 1, 0.5 )); // Box is 3x3x3
+		boxShape.calculateLocalInertia( mass, localInertia );
+
+		var motionState = new Ammo.btDefaultMotionState( startTransform );
+		var rbInfo = new Ammo.btRigidBodyConstructionInfo( mass, motionState, boxShape, localInertia );
+		var boxAmmo = new Ammo.btRigidBody( rbInfo );
+		console.log(boxAmmo);
+		//boxAmmo.setGravity(new Ammo.btVector3(0,0,0));
+		boxAmmo.setAngularFactor(new Ammo.btVector3(0,0,0));
+		if(firemode = 1){
+			boxAmmo.setLinearFactor(new Ammo.btVector3(0,0,0))
+		}
+		boxAmmo.setLinearVelocity(new Ammo.btVector3(vector3.x*30*-1,vector3.y*30*-1,vector3.z*30*-1));
+		//player = boxAmmo;
+		boxAmmo.setFriction(0);
+		boxAmmo.getCollisionShape().obj = 11;
+		boxAmmo.getCollisionShape().objs = boxAmmo;
+		//boxAmmo.getCollisionShape().ob = boxAmmo;
+		console.log(scene.world);
+		//boxAmmo.setMargin(0.5);
+		scene.world.addRigidBody( boxAmmo , 4,1);
+		var geometry = new THREE.SphereGeometry( 0.5, 32, 32 );
+		var material = new THREE.MeshLambertMaterial( {color: 0x404040} );
+		var box2 = new THREE.Mesh( geometry, material );
+		box2.castShadow = false;
+		scene.add(box2);
+		boxAmmo.mesh = box2;
+		boxAmmo.getCollisionShape().mesh = box2;
+		boxes.push( boxAmmo );
+		timer = 1000;
+	}
+}
+
 function fire(){
 	var vector3 = controls.getDirection(new THREE.Vector3(0, 0, 0)).clone();
+	console.log(vector3);
+	var mass = 5; // Matches box dimensions for simplicity
+	var startTransform = new Ammo.btTransform();
+	startTransform.setIdentity();
+	
+	startTransform.setOrigin(new Ammo.btVector3( controls.getObject().position.x , controls.getObject().position.y , controls.getObject().position.z )); // Set initial position
+	
+	var localInertia = new Ammo.btVector3(0, 0, 0);
+
+	var boxShape = new Ammo.btSphereShape(0.5); // Box is 3x3x3
+	boxShape.calculateLocalInertia( mass, localInertia );
+
+	var motionState = new Ammo.btDefaultMotionState( startTransform );
+	var rbInfo = new Ammo.btRigidBodyConstructionInfo( mass, motionState, boxShape, localInertia );
+	var boxAmmo = new Ammo.btRigidBody( rbInfo );
+	console.log(boxAmmo);
+	//boxAmmo.setGravity(new Ammo.btVector3(0,0,0));
+	boxAmmo.setAngularFactor(new Ammo.btVector3(0,0,0));
+	if(firemode = 1){
+		boxAmmo.setLinearFactor(new Ammo.btVector3(1,0,1))
+	}
+	boxAmmo.setLinearVelocity(new Ammo.btVector3(vector3.x*20,vector3.y*20,vector3.z*20));
+	//player = boxAmmo;
+	boxAmmo.setFriction(0);
+	boxAmmo.getCollisionShape().obj = 11;
+	boxAmmo.getCollisionShape().objs = boxAmmo;
+	boxAmmo.getCollisionShape().ob = boxAmmo;
+	console.log(scene.world);
+	//boxAmmo.setMargin(0.5);
+	scene.world.addRigidBody( boxAmmo , 4,1);
+	var geometry = new THREE.SphereGeometry( 0.5, 32, 32 );
+	var material = new THREE.MeshBasicMaterial( {color: 0x404040} );
+	var box2 = new THREE.Mesh( geometry, material );
+
+	box2.castShadow = false;
+	scene.add(box2);
+	boxAmmo.mesh = box2;
+	boxAmmo.getCollisionShape().mesh = box2;
+	boxes.push( boxAmmo );
+	timer = 1000;
 	
 }
 
@@ -406,6 +579,12 @@ function update() {
 	var nw = new Date().getTime();
 	var pass = nw - timepassed;
 	timepassed = nw;
+	if(timer > 0){
+		timer = timer - pass;
+	}
+	if(timer2 > 0){
+		timer2 = timer2 - pass;
+	}
 	for(var i=0;i<pass/1000;i=i+1/300){
 		scene.world.stepSimulation( 1 / 300,1);
 		control(player);
@@ -465,6 +644,43 @@ function render() {
     renderer.render(scene, camera);
 }
 
+function boom(bom){
+	var i, transform = new Ammo.btTransform(), origin;
+	
+	console.log(bom)
+	bom.getMotionState().getWorldTransform(transform);
+	origin = transform.getOrigin();
+	var x1 = origin.x();
+    var y1 = origin.y();
+    var z1 = origin.z();
+	
+	for ( i = 0; i < boxes.length; i++ ) {
+        boxes[i].getMotionState().getWorldTransform( transform ); // Retrieve box position & rotation from Ammo
+         
+        // Update position
+        origin = transform.getOrigin();
+        var x2 = origin.x();
+        var y2 = origin.y();
+        var z2 = origin.z(); 
+		dist = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)+(z2-z1)*(z2-z1));
+		console.log(player.getLinearVelocity().y());
+		//player.setLinearVelocity(new Ammo.btVector3(0,1000,0));
+		console.log(player.getLinearVelocity().y());
+		/*if(dist > 0.1){
+			boxes[i].applyImpulse(0,10,0)
+		}
+		else if(10 - dist > 0){
+			//x2 = dist*(10-(x2-x1));
+			//y2 = dist*(10-(y2-y1));
+			//z2 = dist*(10-(z2-z1));
+			
+			boxes[i].applyImpulse(0,10000,0)
+		}*/
+    }
+	player.applyImpulse(new Ammo.btVector3(0,1000,0));
+	console.log(player.getLinearVelocity().y());
+}
+
 function init(){
 	scene = new THREE.Scene();
 	camera = new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,1000);
@@ -487,6 +703,7 @@ function init(){
 	//camera.position.x = 100;
 	controls = new THREE.PointerLockControls( camera );
 	scene.add( controls.getObject() );
+	console.log(controls.getObject())
 	
 	var directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
 	directionalLight.position.set( -20, 10, 10 );
