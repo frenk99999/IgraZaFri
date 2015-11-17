@@ -23,7 +23,8 @@ var hie = window.innerHeight;
 var chagefiremode = false;
 var sticky = null;
 var timer3 = 0;
-var vrata = null;
+var timer4 = 0;
+var vrata = [];
 
 function control(object){
 	//console.log(player.getLinearVelocity().z()+" 1")
@@ -344,6 +345,7 @@ function loadfix(){
 	//console.log(box2)
 	box2.castShadow = false;
 	scene.add(box2);
+	groundAmmo.mesh = box2
 	
 	vrata[0] = groundAmmo;
 }
@@ -608,12 +610,24 @@ function initControls(){
 	
 }
 
+function odprivrata(obj){
+	scene.remove(obj.mesh);
+	scene.world.removeRigidBody(obj);
+}
+
 function proces(obj){
 	console.log(obj[0].object.last)
 	obj = obj[0];
 	if(obj != null){
 		if(obj.object.last == 1){
-			timer3 = 3000;
+			timer3 = -1;
+			odprivrata(vrata[0]);
+		}
+	}
+	if(obj != null){
+		if(obj.object.last == 2){
+			timer4 = -1;
+			odprivrata(vrata[0]);
 		}
 	}
 }
@@ -754,7 +768,7 @@ function animate() {
 }
 
 function zapri(obj){
-	
+	scene.add(obj.mesh)
 }
 
 function update() {
@@ -769,7 +783,7 @@ function update() {
 	}
 	if(timer3 > 0){
 		timer3 = timer3 - pass;
-		if(timer3 < 0){
+		if(timer3 <= 0){
 			zapri(vrata[0]);
 		}
 	}
