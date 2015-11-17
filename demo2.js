@@ -10,12 +10,20 @@ var moveLeft = false;
 var moveRight = false;
 var canJump = false;
 var jump = false;
+var falseCamera=false;
+var number = 0;
+var cameralocation=[[54,39,54],[-54,39,54],[-43,39,-8],[-6,39,-45]];
 var timer = 0;
 var timer2 = 0;
 var timepassed;
 var raycaster = new THREE.Raycaster();
-var loaded = false;
 var firemode = 1;
+var wind = window.innerWidth;
+var hie = window.innerHeight;
+var chagefiremode = false;
+var sticky = null;
+var timer3 = 0;
+var vrata = null;
 
 function control(object){
 	//console.log(player.getLinearVelocity().z()+" 1")
@@ -29,9 +37,27 @@ function control(object){
 		var Vx = velo.x();
 		var Vy = velo.y();
 		var Vz = velo.z();
-		
+		//var b = false;
+		var vector = new Ammo.btVector3(0,0,0)
 		mV = 0;
 		mH = 0;
+		if(falseCamera){
+			moveForward = false;
+			moveBackward = false;
+			moveLeft = false;
+			moveRight = false;
+			jump = false;
+			chagefiremode = false;
+		}
+		if(chagefiremode){
+			if(firemode == 1){
+				firemode = 2;
+			}
+			else{
+				firemode = 1;
+			}
+			chagefiremode = false;
+		}
 		if ( moveForward ) mV = 1;//new Ammo.btVector3( 10 , velo.y() , 0 ));
 		if ( moveBackward ) mV = -1;//new Ammo.btVector3( -10 , velo.y() , 0 ));
 		if ( moveLeft ) mH = 1;//new Ammo.btVector3( 0 , velo.y() , 10 ));
@@ -61,6 +87,10 @@ function control(object){
 			//console.log(hit);
 			//console.log(hit);
 			if(hit < hi){
+				Vx = velo.x()+xm*0.01;
+				Vz = velo.z()+zm*0.01;
+			}
+			else if(hit < 1){
 				Vx = velo.x()+xm*0.01;
 				Vz = velo.z()+zm*0.01;
 			}
@@ -117,7 +147,8 @@ function control(object){
 					if(inde > -1){
 						boxes.splice(inde,1);
 					}
-					boom(mai.getBody0().getCollisionShape().objs);
+					console.log(Vx);
+					vector = boom(mai.getBody0().getCollisionShape().objs);
 					scene.world.removeRigidBody(mai.getBody0().getCollisionShape().objs);
 					//var index = array.indexOf(mai.getBody0().getCollisionShape().mesh);
 					scene.remove(mai.getBody0().getCollisionShape().mesh);
@@ -127,7 +158,6 @@ function control(object){
 					var inde = -1;//console.log(objs)
 					for(var j=0;j<boxes.length;j++){
 						if(mai.getBody1().getCollisionShape().objs.ptr == boxes[j].ptr){
-							console.log(j)
 							inde = j;
 							break;
 						}//var inde = boxes.indexOf(mai.getBody0().getCollisionShape().objs);
@@ -135,10 +165,22 @@ function control(object){
 					if(inde > -1){
 						boxes.splice(inde,1);
 					}
+					console.log(Vx);
 					//boxes.remove(mai.getBody1().getCollisionShape().objs);
-					boom(mai.getBody1().getCollisionShape().objs);
+					vector = boom(mai.getBody1().getCollisionShape().objs,Vx);
 					scene.world.removeRigidBody(mai.getBody1().getCollisionShape().objs)
 					scene.remove(mai.getBody1().getCollisionShape().mesh);
+				}
+			}
+			else if(mai.getBody0().getCollisionShape().obj == 12 || mai.getBody1().getCollisionShape().obj == 12){
+				if(mai.getBody0().getCollisionShape().obj == 12){
+					mai.getBody0().getCollisionShape().objs.setLinearVelocity(new Ammo.btVector3(0,0,0));
+					mai.getBody0().getCollisionShape().objs.setLinearFactor(new Ammo.btVector3(0,0,0));
+				}
+				else{
+					//console.log(mai.getBody1().getCollisionShape().objs)
+					mai.getBody1().getCollisionShape().objs.setLinearVelocity(new Ammo.btVector3(0,0,0));
+					mai.getBody1().getCollisionShape().objs.setLinearFactor(new Ammo.btVector3(0,0,0));
 				}
 			}
 		}
@@ -146,7 +188,8 @@ function control(object){
 			Vy = 20;
 			jump=false;
 		}
-		player.setLinearVelocity(new Ammo.btVector3( Vx , Vy , Vz ));
+		//console.log(vector)
+		player.setLinearVelocity(new Ammo.btVector3( Vx+vector.x() , Vy+vector.y() , Vz+vector.z() ));
 		//controls.getObject().translateX(1);
 		//console.log(controls);
 		//player.setLinearVelocity(new Ammo.btVector3( 0 , 0 , 0 ));
@@ -229,6 +272,42 @@ function loadfix(){
 		groundAmmo.setFriction(0.8);
 		scene.world.addRigidBody( groundAmmo , 1,62);
 	}
+	
+	var groundShape = new Ammo.btCylinderShape(new Ammo.btVector3(1,1,1)); // Create block 50x2x50
+	var groundTransform = new Ammo.btTransform();
+	groundTransform.setIdentity();
+	groundTransform.setOrigin(new Ammo.btVector3( 22, 1 , 26)); // Set initial position
+ 
+	var groundMass = 0; // Mass of 0 means ground won't move from gravity or collisions
+	var localInertia = new Ammo.btVector3(0, 0, 0);
+	var motionState = new Ammo.btDefaultMotionState( groundTransform );
+	var rbInfo = new Ammo.btRigidBodyConstructionInfo( groundMass, motionState, groundShape, localInertia );
+	var groundAmmo = new Ammo.btRigidBody( rbInfo );
+	groundAmmo.setFriction(0.8);
+	scene.world.addRigidBody( groundAmmo , 1,62);
+	
+	var geometry = new THREE.CylinderGeometry( 1, 1,2,32);
+	var material = new THREE.MeshPhongMaterial( { color: 0xdddddd, specular: 0xdddddd, shininess: 30, shading: THREE.FlatShading } )
+	//var material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+	box2 = new THREE.Mesh(geometry,material);
+	console.log(box2)
+	box2.position.x = 22
+	box2.position.y = 1
+	box2.position.z = 26
+	console.log(box2)
+	box2.castShadow = false;
+	scene.add(box2);
+	
+	var geometry = new THREE.SphereGeometry( 0.9, 32,32);
+	var material = new THREE.MeshPhongMaterial( { color: 0xff0000, specular: 0xff0000, shininess: 30, shading: THREE.FlatShading } )
+	box2 = new THREE.Mesh(geometry,material);
+	box2.castShadow = false;
+	box2.position.x = 22
+	box2.position.y = 1.75
+	box2.position.z = 26
+	box2.last = 1;
+	scene.add(box2);
+	
 	var loader = new THREE.ObjectLoader(); 
 	loader.load('untitled-scene.json', function( obj ){ console.log(obj); scene.add( obj ); });
 	
@@ -241,6 +320,32 @@ function loadfix(){
 	//console.log(player.setActivationState(0));
 	//console.log(player.isActive());
 	
+	var groundShape = new Ammo.btBoxShape(new Ammo.btVector3( 2,4,4)); // Create block 50x2x50
+	var groundTransform = new Ammo.btTransform();
+	groundTransform.setIdentity();
+	groundTransform.setOrigin(new Ammo.btVector3( 18, 4, 48 )); // Set initial position
+ 
+	var groundMass = 0; // Mass of 0 means ground won't move from gravity or collisions
+	var localInertia = new Ammo.btVector3(0, 0, 0);
+	var motionState = new Ammo.btDefaultMotionState( groundTransform );
+	var rbInfo = new Ammo.btRigidBodyConstructionInfo( groundMass, motionState, groundShape, localInertia );
+	var groundAmmo = new Ammo.btRigidBody( rbInfo );
+	groundAmmo.setFriction(0.8);
+	scene.world.addRigidBody( groundAmmo , 1,62);
+	
+	var geometry = new THREE.BoxGeometry( 4, 8,8);
+	var material = new THREE.MeshPhongMaterial( { color: 0xdddddd, specular: 0xdddddd, shininess: 30, shading: THREE.FlatShading } )
+	//var material = new THREE.MeshBasicMaterial({color: 0x00ff00});
+	box2 = new THREE.Mesh(geometry,material);
+	console.log(box2)
+	box2.position.x = 18
+	box2.position.y = 4
+	box2.position.z = 48
+	//console.log(box2)
+	box2.castShadow = false;
+	scene.add(box2);
+	
+	vrata[0] = groundAmmo;
 }
 
 function loaddim(){
@@ -320,6 +425,8 @@ function loaddim(){
 	scene.add(box2);
 	boxAmmo.mesh = box2; // Assign the Three.js mesh in `box`, this is used to update the model position later*/
 	boxes.push( boxAmmo );
+	
+	
 }
 
 function initControls(){
@@ -414,6 +521,7 @@ function initControls(){
 	}
 	
 	var onKeyDown = function ( event ) {
+		console.log(event.keyCode);
 		switch ( event.keyCode ) {
 			case 38: // up
 			case 87: // w
@@ -430,6 +538,17 @@ function initControls(){
 			case 39: // right
 			case 68: // d
 				moveRight = true;
+			break;
+			case 86: // v
+				falseCamera = !falseCamera;
+			break;
+			case 81: // q
+				chagefiremode = true;
+			break;
+			case 69: // e
+				raycaster.setFromCamera( new THREE.Vector2(0,0), camera, 0 , 1);
+				raycaster.far = 5;
+				proces(raycaster.intersectObject ( scene, true ));
 			break;
 			case 32: // space
 				if(canJump){
@@ -464,10 +583,23 @@ function initControls(){
 	
 	var mousedown = function ( event ) { 
 		if (controlsEnabled && timer <= 0 && event.which == 1){
-			fire();
+			if(!falseCamera){
+				fire();
+			}
+			else{
+				number = (number+1)%cameralocation.length;
+			}
 		}
 		if (controlsEnabled && timer2 <= 0 && event.which == 3){
-			altfire();
+			if(!falseCamera){
+				altfire();
+			}
+			else{
+				number = number-1;
+				if(number < 0){
+					number = number + cameralocation.length;
+				}
+			}
 		} 
 	}
 	document.addEventListener( 'keydown', onKeyDown, false );
@@ -476,11 +608,21 @@ function initControls(){
 	
 }
 
+function proces(obj){
+	console.log(obj[0].object.last)
+	obj = obj[0];
+	if(obj != null){
+		if(obj.object.last == 1){
+			timer3 = 3000;
+		}
+	}
+}
+
 function altfire(){
-	if(firemode = 1){
+	if(firemode == 1){
 		var vector3 = controls.getDirection(new THREE.Vector3(0, 0, 0)).clone();
 		console.log(vector3);
-		var mass = 5; // Matches box dimensions for simplicity
+		var mass = 10; // Matches box dimensions for simplicity
 		var startTransform = new Ammo.btTransform();
 		startTransform.setIdentity();
 	
@@ -489,7 +631,7 @@ function altfire(){
 	
 		var localInertia = new Ammo.btVector3(0, 0, 0);
 
-		var boxShape = new Ammo.btBoxShape(new Ammo.btVector3( 0.5 , 1, 0.5 )); // Box is 3x3x3
+		var boxShape = new Ammo.btSphereShape(0.25); // Box is 3x3x3
 		boxShape.calculateLocalInertia( mass, localInertia );
 
 		var motionState = new Ammo.btDefaultMotionState( startTransform );
@@ -498,8 +640,8 @@ function altfire(){
 		console.log(boxAmmo);
 		//boxAmmo.setGravity(new Ammo.btVector3(0,0,0));
 		boxAmmo.setAngularFactor(new Ammo.btVector3(0,0,0));
-		if(firemode = 1){
-			boxAmmo.setLinearFactor(new Ammo.btVector3(0,0,0))
+		if(firemode == 1){
+			boxAmmo.setLinearFactor(new Ammo.btVector3(0,0,0));
 		}
 		boxAmmo.setLinearVelocity(new Ammo.btVector3(vector3.x*30*-1,vector3.y*30*-1,vector3.z*30*-1));
 		//player = boxAmmo;
@@ -510,7 +652,7 @@ function altfire(){
 		console.log(scene.world);
 		//boxAmmo.setMargin(0.5);
 		scene.world.addRigidBody( boxAmmo , 4,1);
-		var geometry = new THREE.SphereGeometry( 0.5, 32, 32 );
+		var geometry = new THREE.SphereGeometry( 0.25, 32, 32 );
 		var material = new THREE.MeshLambertMaterial( {color: 0x404040} );
 		var box2 = new THREE.Mesh( geometry, material );
 		box2.castShadow = false;
@@ -520,12 +662,34 @@ function altfire(){
 		boxes.push( boxAmmo );
 		timer = 1000;
 	}
+	if(firemode == 2){
+		if(sticky != null){
+			var inde = -1;
+			for(var j=0;j<boxes.length;j++){
+				if(sticky.ptr == boxes[j].ptr){
+					inde = j;
+					break;
+				}
+			}
+			if(inde > -1){
+				boxes.splice(inde,1);
+			}
+			
+			boom(sticky,true);
+			scene.world.removeRigidBody(sticky);
+			scene.remove(sticky.mesh);
+			sticky = null;
+		}
+	}
 }
 
 function fire(){
+	if(firemode == 2 && sticky != null){
+		return
+	}
 	var vector3 = controls.getDirection(new THREE.Vector3(0, 0, 0)).clone();
 	console.log(vector3);
-	var mass = 5; // Matches box dimensions for simplicity
+	var mass = 10; // Matches box dimensions for simplicity
 	var startTransform = new Ammo.btTransform();
 	startTransform.setIdentity();
 	
@@ -533,7 +697,7 @@ function fire(){
 	
 	var localInertia = new Ammo.btVector3(0, 0, 0);
 
-	var boxShape = new Ammo.btSphereShape(0.5); // Box is 3x3x3
+	var boxShape = new Ammo.btSphereShape(0.25); // Box is 3x3x3
 	boxShape.calculateLocalInertia( mass, localInertia );
 
 	var motionState = new Ammo.btDefaultMotionState( startTransform );
@@ -542,20 +706,28 @@ function fire(){
 	console.log(boxAmmo);
 	//boxAmmo.setGravity(new Ammo.btVector3(0,0,0));
 	boxAmmo.setAngularFactor(new Ammo.btVector3(0,0,0));
-	if(firemode = 1){
+	if(firemode == 1){
 		boxAmmo.setLinearFactor(new Ammo.btVector3(1,0,1))
+		boxAmmo.setLinearVelocity(new Ammo.btVector3(vector3.x*30,vector3.y*30,vector3.z*30));
+		boxAmmo.getCollisionShape().obj = 11;
 	}
-	boxAmmo.setLinearVelocity(new Ammo.btVector3(vector3.x*20,vector3.y*20,vector3.z*20));
+	else{
+		boxAmmo.setLinearVelocity(new Ammo.btVector3(vector3.x*40,vector3.y*40,vector3.z*40));
+		boxAmmo.getCollisionShape().obj = 12;
+	}
 	//player = boxAmmo;
 	boxAmmo.setFriction(0);
-	boxAmmo.getCollisionShape().obj = 11;
 	boxAmmo.getCollisionShape().objs = boxAmmo;
 	boxAmmo.getCollisionShape().ob = boxAmmo;
 	console.log(scene.world);
 	//boxAmmo.setMargin(0.5);
 	scene.world.addRigidBody( boxAmmo , 4,1);
-	var geometry = new THREE.SphereGeometry( 0.5, 32, 32 );
-	var material = new THREE.MeshBasicMaterial( {color: 0x404040} );
+	var geometry = new THREE.SphereGeometry( 0.25, 32, 32 );
+	var material = new THREE.MeshLambertMaterial( {color: 0x404040} );
+	if(firemode == 2){
+		material = new THREE.MeshLambertMaterial( {color: 0x44ff44} );
+		timer2 = 250;
+	}
 	var box2 = new THREE.Mesh( geometry, material );
 
 	box2.castShadow = false;
@@ -563,6 +735,10 @@ function fire(){
 	boxAmmo.mesh = box2;
 	boxAmmo.getCollisionShape().mesh = box2;
 	boxes.push( boxAmmo );
+	
+	if(firemode == 2){
+		sticky = boxAmmo;
+	}
 	timer = 1000;
 	
 }
@@ -570,9 +746,15 @@ function fire(){
 function animate() {
 	
 	requestAnimationFrame( animate );
-	render();
+	if(controlsEnabled){
+		render();
+	}
 	//stats.update();
 
+}
+
+function zapri(obj){
+	
 }
 
 function update() {
@@ -584,6 +766,12 @@ function update() {
 	}
 	if(timer2 > 0){
 		timer2 = timer2 - pass;
+	}
+	if(timer3 > 0){
+		timer3 = timer3 - pass;
+		if(timer3 < 0){
+			zapri(vrata[0]);
+		}
 	}
 	for(var i=0;i<pass/1000;i=i+1/300){
 		scene.world.stepSimulation( 1 / 300,1);
@@ -609,45 +797,40 @@ function update() {
         boxes[i].mesh.quaternion.w = rotation.w();
     }
 	
-	player.getMotionState().getWorldTransform( transform );
-	origin = transform.getOrigin();
-	controls.getObject().position.x = origin.x();
-	controls.getObject().position.y = origin.y()+1.5;
-	controls.getObject().position.z = origin.z();
-	
+	if(!falseCamera){
+		player.getMotionState().getWorldTransform( transform );
+		origin = transform.getOrigin();
+		controls.getObject().position.x = origin.x();
+		controls.getObject().position.y = origin.y()+1.5;
+		controls.getObject().position.z = origin.z();
+	}
+	else{
+		controls.getObject().position.x = cameralocation[number][0];
+		controls.getObject().position.y = cameralocation[number][1];
+		controls.getObject().position.z = cameralocation[number][2];
+	}
 }
 
 function render() {
 
-    /*var now = new Date().getTime();
-	if(!lastUpdate){
-		lastUpdate = now;
-	}
-    dt = (now - lastUpdate) / 1000;
-    lastUpdate = now;
-    simulatePhysics(dt);*/
 	
-	//console.log(boxes[0].position.x,boxes[0].position.y,boxes[0].position.z);
 	update();
-	//console.log(boxes[0].position.x,boxes[0].position.y,boxes[0].position.z);
-    //if (stacking) checkRestart();
 
-    // Resize client if necessary
-    /*if (w !== window.innerWidth || h !== window.innerHeight) {
+
+
+    if (wind !== window.innerWidth || hie !== window.innerHeight) {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        // set old sizes for comparison again
         w = window.innerWidth, h = window.innerHeight;
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-    }*/
+    }
 
     renderer.render(scene, camera);
 }
 
-function boom(bom){
+function boom(bom,b){
 	var i, transform = new Ammo.btTransform(), origin;
 	
-	console.log(bom)
 	bom.getMotionState().getWorldTransform(transform);
 	origin = transform.getOrigin();
 	var x1 = origin.x();
@@ -655,30 +838,44 @@ function boom(bom){
     var z1 = origin.z();
 	
 	for ( i = 0; i < boxes.length; i++ ) {
-        boxes[i].getMotionState().getWorldTransform( transform ); // Retrieve box position & rotation from Ammo
+        boxes[i].getMotionState().getWorldTransform( transform );
          
-        // Update position
         origin = transform.getOrigin();
         var x2 = origin.x();
         var y2 = origin.y();
         var z2 = origin.z(); 
 		dist = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1)+(z2-z1)*(z2-z1));
-		console.log(player.getLinearVelocity().y());
-		//player.setLinearVelocity(new Ammo.btVector3(0,1000,0));
-		console.log(player.getLinearVelocity().y());
-		/*if(dist > 0.1){
-			boxes[i].applyImpulse(0,10,0)
+		
+		var dx=1;
+		var dy=1;
+		var dz=1;
+		
+		if((x2-x1)/dist<0){
+			dx=-1;
 		}
-		else if(10 - dist > 0){
-			//x2 = dist*(10-(x2-x1));
-			//y2 = dist*(10-(y2-y1));
-			//z2 = dist*(10-(z2-z1));
-			
-			boxes[i].applyImpulse(0,10000,0)
-		}*/
+		if((y2-y1/dist)<0){
+			yx=-1;
+		}
+		if((z2-z1)/dist<0){
+			zx=-1;
+		}
+		
+		if(10 - dist > 0){
+			x2 = (x2-x1)/dist*300;
+			y2 = (y2-y1)/dist*300;
+			z2 = (z2-z1)/dist*300;
+			boxes[i].applyCentralImpulse(new Ammo.btVector3(x2,y2,z2));
+		}
+		console.log(x2+" "+y2+" "+z2);
     }
-	player.applyImpulse(new Ammo.btVector3(0,1000,0));
-	console.log(player.getLinearVelocity().y());
+	if(b){
+		player.applyCentralImpulse(new Ammo.btVector3(x2*7,y2*7,z2*7));
+	}
+	else{
+		player.setLinearVelocity(new Ammo.btVector3(0,0,0));
+		player.applyCentralImpulse(new Ammo.btVector3(x2,y2,z2));
+	}
+	return new Ammo.btVector3(player.getLinearVelocity().x(),player.getLinearVelocity().y(),player.getLinearVelocity().z());
 }
 
 function init(){
